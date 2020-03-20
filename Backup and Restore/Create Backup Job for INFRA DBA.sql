@@ -2,7 +2,7 @@
 Create -- INFRA DBA -- Maintenance: XXX_DBBackup
 date: 5/9/2019
 
-Steps:  replace xxxx with the name of your database. There are 3 instances.
+Steps:  replace xxxx with the name of your database. There are 3 places in this script.
 
 */
 

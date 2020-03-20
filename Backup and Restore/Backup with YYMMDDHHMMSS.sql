@@ -1,4 +1,8 @@
+/*
+Create a backup with time stamp in the name.
 
+
+*/
 
 SET ANSI_NULLS ON
 GO
