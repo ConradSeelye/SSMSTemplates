@@ -1,0 +1,32 @@
+
+
+USE MASTER
+GO
+
+BACKUP DATABASE [testsb] 
+TO  DISK = N'S:\MSSQLSERVER\SQLBACKUPS\testsb10.bak' 
+WITH NOFORMAT, NOINIT,  NAME = N'testsb-Full Database Backup', 
+SKIP, NOREWIND, NOUNLOAD,  STATS = 1
+GO
+
+BACKUP LOG [testsb] 
+TO  DISK = N'S:\MSSQLSERVER\SQLBACKUPS\testsb10.trn' 
+WITH NOFORMAT, NOINIT,  NAME = N'testsb-Full Database Backup', 
+SKIP, NOREWIND, NOUNLOAD,  STATS = 1
+GO
+
+USE [master]
+RESTORE DATABASE [testsb] 
+FROM  DISK = N'S:\MSSQLSERVER\restores\testsb10.bak' 
+WITH  FILE = 1,  NORECOVERY,  REPLACE,  STATS = 1
+GO
+
+USE [master]
+RESTORE DATABASE [testsb] 
+FROM  DISK = N'S:\MSSQLSERVER\restores\testsb10.trn' 
+WITH  FILE = 1,  NORECOVERY,  STATS = 1
+GO
+
+
+
+
