@@ -1,0 +1,142 @@
+/*
+Monitor and Alert on AG Status_2
+2/13/2025
+
+*/
+
+
+USE MyDatabase
+GO
+
+/****** Object:  StoredProcedure [dbo].[sp_AlwaysOn_health_monitor]    Script Date: 8/18/2020 8:07:16 AM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+-- =============================================
+-- Author:		Cui, Che
+-- Create date: 2016/09/30
+-- Description:Monitor database file growth
+-- =============================================
+CREATE PROCEDURE [dbo].[sp_AlwaysOn_health_monitor]
+@monitor_or_report NCHAR = 'R'
+/* M -- Monitor
+   R -- Report
+*/
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+	
+	DECLARE @Server NVARCHAR(100)
+	DECLARE @dnsname NVARCHAR(63)
+	DECLARE @group_id UNIQUEIDENTIFIER
+	DECLARE @primary_replica NVARCHAR(128)
+	DECLARE @primary_state NVARCHAR(60)
+	DECLARE @synchronization_state NVARCHAR(60)
+	DECLARE	@alert_flag BIT = 0
+	DECLARE @warning_flag BIT = 0
+	DECLARE @replica_server_name NVARCHAR(128)
+	DECLARE @join_state_desc NVARCHAR(60)
+	DECLARE @role_desc NVARCHAR(60)
+	DECLARE @synchronization_health_desc NVARCHAR(60)
+	DECLARE @email_subject NVARCHAR(100)
+	DECLARE @EmailMessage NVARCHAR(4000)
+
+	SELECT @Server  =  @@servername
+	SELECT @dnsname =  (SELECT top 1 dns_name FROM  sys.availability_group_listeners)
+
+	SET @email_subject = 'AlwaysOn Health State - '	 + @dnsname 
+						+ ' on Server: '+  @Server
+						 
+	SET @EmailMessage = CAST('SQL Server Listener DNS Name:  ' AS CHAR(36))
+						 + @dnsname + CHAR(13)
+
+	-- Assuming there is only one AG in this environment
+	SELECT @group_id = group_id FROM sys.dm_hadr_availability_group_states
+	SELECT @primary_replica = primary_replica FROM sys.dm_hadr_availability_group_states
+	SELECT @primary_state = primary_recovery_health_desc FROM sys.dm_hadr_availability_group_states
+	SELECT @synchronization_state = synchronization_health_desc FROM sys.dm_hadr_availability_group_states
+
+	IF @primary_replica <> @Server 	RETURN 0
+
+	IF @primary_state <> 'ONLINE' OR @synchronization_state <> 'HEALTHY'
+		BEGIN
+			SET @alert_flag = 1
+			SET @email_subject = 'Alert! ' + @email_subject
+		END
+
+	SET @EmailMessage = @EmailMessage + CHAR(13) 
+						+ 'Primary Instance: <<<'  + @primary_replica + '>>>' + CHAR(9)
+						+ 'STATE: ' + CHAR(9) + '<<<' + @primary_state + '>>>' 
+						+ CHAR(13) 
+						+ 'Availability Group Synchronization State: ' + '<<<'
+						 + @synchronization_state + '>>>' + CHAR(13) + CHAR(13) 
+
+
+
+	DECLARE ReplicaCursor CURSOR FOR
+	SELECT C.replica_server_name, 
+	R.role_desc,
+	C.join_state_desc,
+	R.synchronization_health_desc 
+	FROM sys.dm_hadr_availability_replica_cluster_states C
+	, sys.dm_hadr_availability_replica_states R
+	WHERE C.replica_id = R.replica_id
+	AND C.group_id = @group_id
+	ORDER BY C.replica_server_name
+
+	OPEN ReplicaCursor
+	FETCH NEXT FROM ReplicaCursor INTO 
+		@replica_server_name, @role_desc, @join_state_desc,
+		@synchronization_health_desc
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		
+		SET @EmailMessage = @EmailMessage 
+				+ CAST(@replica_server_name AS CHAR(16))  
+				+ CAST(@role_desc AS CHAR(12)) 
+				+ CAST(@synchronization_health_desc AS CHAR(24))
+				+ CHAR(13)
+
+		IF @synchronization_health_desc <> 'HEALTHY'
+		BEGIN
+			IF @warning_flag = 0 
+				BEGIN
+					SET @warning_flag = 1
+					SET @email_subject = 'Warning! ' + @email_subject
+				END
+		END
+			
+
+		FETCH NEXT FROM ReplicaCursor INTO 
+		@replica_server_name, @role_desc, @join_state_desc,
+		 @synchronization_health_desc
+	END
+	CLOSE ReplicaCursor
+	DEALLOCATE ReplicaCursor
+
+--	SELECT @EmailMessage
+--	SELECT LEN(@EmailMessage)
+
+	IF @alert_flag = 1 or @warning_flag = 1 or  @monitor_or_report = 'R'
+		EXEC msdb.dbo.sp_send_dbmail
+			@profile_name = N'DefaultProfile',
+			@recipients=N'myemailaddresses',
+			@copy_recipients=N'',
+			@subject = @email_subject,
+			@body = @EmailMessage
+
+END
+
+
+GO
+
+
+
+
+
