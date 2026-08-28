@@ -1,0 +1,82 @@
+/*
+Get recent AG failovers_2
+
+* Notes
+1.	Value of error log file you want to read: 0 = current, 1 = Archive #1, 2 = Archive #2, etc…
+2.	Log file type: 1 or NULL = error log, 2 = SQL Agent log
+3.	Search string 1: String one you want to search for
+4.	Search string 2: String two you want to search for to further refine the results
+5.	Search from start time
+6.	Search to end time
+7.	Sort order for results: N’asc’ = ascending, N’desc’ = descending
+
+
+
+*/
+
+DECLARE @DateTimeEnd VARCHAR(100) = CONVERT(VARCHAR(100), GetDate(), 120)
+DECLARE @DateTimeStart VARCHAR(100) = CONVERT(VARCHAR(100), DATEADD (MINUTE,-2,@DateTimeEnd), 120)
+DECLARE @Text1 VARCHAR(MAX) = 'PRIMARY_NORMAL'
+DECLARE @RecentFailover bit = 0
+DECLARE @CurrentBackupJobRunning bit = 0
+
+CREATE TABLE #ErrorLog (
+    LogDate DATETIME,
+    ProcessInfo NVARCHAR(128),
+    Text NVARCHAR(MAX)
+);
+
+INSERT INTO #ErrorLog
+EXEC master.dbo.xp_readerrorlog 
+	0 
+	, 1
+	, "PRIMARY_NORMAL"
+	, NULL
+	, @DateTimeStart
+	, @DateTimeEnd
+	, N'DESC'
+	-- , @InstanceName 
+
+/*
+SELECT * 
+FROM #ErrorLog
+--WHERE Text NOT LIKE '%backed up%'
+ORDER BY LogDate DESC
+*/
+
+IF EXISTS (SELECT 1 FROM #ErrorLog)
+	SET @RecentFailover = 1
+
+SELECT @RecentFailover
+
+DROP TABLE #ErrorLog
+
+
+-- check if the backup job is already running 
+--DECLARE @CurrentBackupJobRunning bit = 0
+/*
+IF EXISTS (
+	SELECT j.job_id,
+       j.name,
+       ja.start_execution_date,
+       ja.run_requested_date,
+       ja.stop_execution_date
+	FROM msdb.dbo.sysjobactivity ja
+		JOIN msdb.dbo.sysjobs j
+		  ON ja.job_id = j.job_id
+	WHERE j.name = '-- OPS DBA -- BMAPS_DBBackup'
+	  AND ja.start_execution_date IS NOT NULL
+	  AND ja.stop_execution_date IS NULL
+	)
+	SET @CurrentBackupJobRunning = 1
+
+SELECT @CurrentBackupJobRunning
+
+IF @RecentFailover = 1 AND @CurrentBackupJobRunning = 0
+	
+	-- PRINT 'YES'
+	EXEC msdb.dbo.sp_start_job @job_name = N'-- OPS DBA -- BMAPS_DBBackup';
+
+*/
+
+
