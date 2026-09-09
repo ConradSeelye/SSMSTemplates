@@ -1,0 +1,20 @@
+/*
+aa_Test Linked Server as another login
+
+status : ok
+*/
+
+
+PRINT @@SERVERNAME
+PRINT SUSER_SNAME()
+
+EXECUTE AS LOGIN = 'login name'
+PRINT SUSER_SNAME()
+
+EXEC sp_testlinkedserver LinkedServerName
+
+REVERT
+
+
+
+
