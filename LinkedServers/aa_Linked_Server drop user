@@ -1,0 +1,10 @@
+/*
+aa_Linked_Server drop user
+
+*/
+
+USE [master]
+GO
+
+EXEC master.dbo.sp_droplinkedsrvlogin @rmtsrvname = N'LinkedServerName', @locallogin = N'domain\login'
+GO
