@@ -1,0 +1,40 @@
+/*
+Dynamic Data Masking Demo
+
+9/12/2026
+
+
+*/
+
+DROP TABLE IF EXISTS dbo.CustomerExamPrep
+
+CREATE TABLE dbo.CustomerExamPrep (
+
+    CustomerID INT IDENTITY(1,1) PRIMARY KEY,
+    FirstName VARCHAR(50) MASKED WITH (FUNCTION = 'partial(1, "XXX", 0)') NULL,
+    LastName VARCHAR(50) MASKED WITH (FUNCTION = 'default()') NULL,
+    Phone VARCHAR(20) MASKED WITH (FUNCTION = 'partial(2, "XXX-XXXX-", 2)') NULL,
+    Email VARCHAR(100) MASKED WITH (FUNCTION = 'email()') NULL,
+    AccountBalance INT MASKED WITH (FUNCTION = 'random(1, 9)') NOT NULL,
+    EntraObjectID UNIQUEIDENTIFIER MASKED WITH (FUNCTION = 'default()') NULL
+);
+
+ALTER TABLE dbo.CustomerExamPrep
+ALTER COLUMN LastName ADD MASKED WITH (FUNCTION = 'default()');
+
+ALTER TABLE dbo.CustomerExamPrep
+ALTER COLUMN Phone VARCHAR(20) MASKED WITH (FUNCTION = 'partial(0,"CONFIDENTIAL",0)') NULL;
+GO
+
+ALTER TABLE dbo.CustomerExamPrep
+ALTER COLUMN Email DROP MASKED;
+
+CREATE USER TestAppUser WITHOUT LOGIN
+
+GRANT UNMASK TO TestAppUser;
+REVOKE UNMASK FROM TestAppUser;
+
+
+
+
+
